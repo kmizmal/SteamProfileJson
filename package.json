@@ -1,0 +1,45 @@
+{
+  "name": "SteamProfileJson",
+  "version": "1.0.0",
+  "description": "Data acquisition by scraping the Steam Community MiniProfile page",
+  "author": "zmal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kmizmal/SteamProfileJson.git"
+  },
+  "keywords": [
+    "steam",
+    "profile",
+    "json",
+    "scraping"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint --fix src test",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.1.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2",
+    "steamid": "^2.1.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^4.16.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^24.0.13",
+    "@types/steamid": "^2.0.3",
+    "eslint": "^9.31.0",
+    "eslint-plugin-format": "^1.0.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
