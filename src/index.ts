@@ -5,11 +5,8 @@ import morgan from "morgan";
 import fetch from "node-fetch";
 import * as cheerio from "cheerio";
 import fs from "fs";
+import SteamID from "steamid";
 const allowedOrigins = JSON.parse(fs.readFileSync('./allowedOrigins.json', 'utf-8'));
-
-
-const SteamID = require("steamid"); // Correctly import SteamID constructor
-
 const app = express();
 
 app.use(morgan("dev"));
@@ -32,9 +29,16 @@ app.get("/", async (req, res) => {
     return;
   }
 
+  let steamid64 = steamid;
+
+  // 👇 支持 https://steamcommunity.com/profiles/xxxxxxxxxxxxxxx
+  const match = steamid.match(/^https:\/\/steamcommunity\.com\/profiles\/(\d{17})$/);
+  if (match) {
+    steamid64 = match[1];
+  }
   let sid: any;
   try {
-    sid = new SteamID(steamid);
+    sid = new SteamID(steamid64);
     if (!sid.isValid()) throw new Error("Invalid SteamID");
   } catch (e) {
     res.status(400).json({ error: "Invalid SteamID format" });
@@ -60,16 +64,19 @@ app.get("/", async (req, res) => {
     const name = $(".persona").first().text().trim();
     const secondaryName = $(".secondaryname").first().text().trim();
     // 状态优先级获取
-    let status = "";
+    let status;
     if ($(".friend_status_offline").length) {
       //离线
-      status = $(".friend_status_offline").first().text().trim();
+      // status = $(".friend_status_offline").first().text().trim();
+      status = 0;
     } else if ($(".friend_status_online").length) {
       // 在线
-      status = $(".friend_status_online").first().text().trim();
+      // status = $(".friend_status_online").first().text().trim();
+      status = 1;
     } else {
       // fallback到游戏状态
-      status = $(".game_state").first().text().trim();
+      // status = $(".game_state").first().text().trim();
+      status = 2;
     }
 
 

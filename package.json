@@ -1,5 +1,5 @@
 {
-  "name": "SteamProfileJson",
+  "name": "steam-profile-json",
   "version": "1.0.0",
   "description": "Data acquisition by scraping the Steam Community MiniProfile page",
   "author": "zmal",

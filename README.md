@@ -1,13 +1,13 @@
 # Steam MiniProfile API
 
-基于 Node.js 和 Express 的简易 API 服务，用于绕过steamkey抓取并解析 Steam 用户的 MiniProfile 信息，包括昵称、状态、头像、背景、Steam 等级、游戏状态和徽章等。
+基于 Node.js 和 Express 的简易 API 服务，用于绕过`steamkey`抓取并解析 Steam 用户的 MiniProfile 信息，包括昵称、状态、头像、背景、Steam 等级、游戏状态和徽章等。
 
 ---
 
 ## 功能特点
 
 - 支持通过 SteamID 查询用户 MiniProfile
-- 自动解析用户昵称、状态（在线/离线/游戏中）、头像及高清头像
+- 自动解析用户昵称、状态（在线`1`/离线`0`/游戏中）、头像及高清头像
 - 支持获取用户背景图片或视频
 - 抓取用户 Steam 等级
 - 获取当前游戏及游戏图标
@@ -45,9 +45,7 @@ pnpm i
 
 该文件用于配置允许跨域请求的来源列表。
 
->
-也可以填入`"*"`***不推荐***
->
+> 也可以填入`"*"`***不推荐***
 
 ### 启动服务
 
@@ -56,8 +54,6 @@ pnpm dev
 ```
 
 默认启动一个开发环境服务器。
-
----
 
 ## 使用说明
 
@@ -101,31 +97,6 @@ curl "http://localhost:3000/?steamid=76561198000000000&lang=en"
   }
 }
 ```
-
----
-
-## 项目结构
-
-```
-.
-├── middlewares.ts       # 中间件函数
-├── allowedOrigins.json  # 跨域允许来源列表
-├── app.ts               # Express 主应用入口
-├── package.json
-└── README.md
-```
-
----
-
-## 依赖
-
-* express
-* cors
-* helmet
-* morgan
-* node-fetch
-* cheerio
-* steamid
 
 ---
 
