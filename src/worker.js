@@ -3,7 +3,7 @@ export default {
         try {
             return await handleRequest(request);
         } catch (err) {
-            return new Response(JSON.stringify({ error: "Internal server error" }), {
+            return new Response(JSON.stringify({ error: "Internal server error", details: err.message }), {
                 status: 500,
                 headers: {
                     "Content-Type": "application/json",
@@ -26,7 +26,7 @@ class ProfileDataCollector {
             backgroundVideo: "",
             level: 0,
             game: null,
-            badge: []
+            badge: null
         };
     }
 }
@@ -48,32 +48,20 @@ class TextContentHandler {
 }
 
 class StatusHandler {
-    static STATUS_MAP = {
-        "offline": 0,
-        "online": 1,
-        "in-game": 2,
-        "away": 3,
-        "busy": 4
-    };
-
     constructor(collector) {
         this.collector = collector;
     }
 
     element(element) {
         if (!element.classList) return;
-        for (const cls of element.classList) {
-            if (StatusHandler.STATUS_MAP[cls] !== undefined) {
-                this.collector.data.status = StatusHandler.STATUS_MAP[cls];
-                return;
-            }
-            if (cls.startsWith("border_color_")) {
-                const key = cls.replace("border_color_", "");
-                if (StatusHandler.STATUS_MAP[key] !== undefined) {
-                    this.collector.data.status = StatusHandler.STATUS_MAP[key];
-                    return;
-                }
-            }
+
+        // Check for direct status classes
+        if (element.classList.contains("friend_status_offline")) {
+            this.collector.data.status = 0;
+        } else if (element.classList.contains("friend_status_online")) {
+            this.collector.data.status = 1;
+        } else if (element.classList.contains("game_state")) {
+            this.collector.data.status = 2;
         }
     }
 }
@@ -90,9 +78,16 @@ class AvatarHandler {
 
         if (!this.collector.data.avatarFull) {
             const srcset = element.getAttribute("srcset") || "";
-            const sources = srcset.split(",").map(s => s.trim().split(" ")).filter(pair => pair.length === 2);
-            const hd = sources.find(pair => pair[1] === "2x");
-            this.collector.data.avatarFull = hd ? hd[0] : this.collector.data.avatar;
+            if (srcset) {
+                const sources = srcset.split(",").map(s => s.trim());
+                const hdSource = sources.find(s => s.includes("2x"));
+                if (hdSource) {
+                    this.collector.data.avatarFull = hdSource.split(" ")[0];
+                }
+            }
+            if (!this.collector.data.avatarFull) {
+                this.collector.data.avatarFull = this.collector.data.avatar;
+            }
         }
     }
 }
@@ -105,7 +100,7 @@ class BackgroundHandler {
     element(element) {
         if (!this.collector.data.background) {
             const src = element.getAttribute("src");
-            if (src && !src.includes("shared_assets")) {
+            if (src) {
                 this.collector.data.background = src;
             }
         }
@@ -146,65 +141,70 @@ class LevelHandler {
 class GameInfoHandler {
     constructor(collector) {
         this.collector = collector;
-        if (!collector.data.game) {
-            collector.data.game = { name: "", logo: "", appid: "", storeUrl: "" };
-        }
+        this.isGameSection = false;
     }
 
     element(element) {
         if (!element.classList) return;
 
-        if (element.classList.contains("miniprofile_game_name")) {
-            const text = element.textContent;
-            if (text) this.collector.data.game.name = text.trim();
+        // Check if we're in a game section
+        if (element.classList.contains("miniprofile_gamesection")) {
+            this.isGameSection = true;
+            if (!this.collector.data.game) {
+                this.collector.data.game = { name: "", logo: "" };
+            }
         }
 
-        if (element.classList.contains("game_logo")) {
+        if (this.isGameSection && element.classList.contains("miniprofile_game_name")) {
+            const text = element.textContent;
+            if (text && this.collector.data.game) {
+                this.collector.data.game.name = text.trim();
+            }
+        }
+
+        if (this.isGameSection && element.classList.contains("game_logo")) {
             const src = element.getAttribute("src");
-            if (src) {
+            if (src && this.collector.data.game) {
                 this.collector.data.game.logo = src;
-                const match = src.match(/apps\/(\d+)\//);
-                if (match) {
-                    this.collector.data.game.appid = match[1];
-                    this.collector.data.game.storeUrl = `https://store.steampowered.com/app/${match[1]}/`;
-                }
             }
         }
     }
 }
 
-// 拆分的 Badge 处理器
-class BadgeIconHandler {
+class BadgeHandler {
     constructor(collector) {
         this.collector = collector;
-        this.current = {};
-        this.collector.data.badge.push(this.current);
+        this.currentBadge = null;
     }
 
     element(element) {
-        this.current.icon = element.getAttribute("src") || "";
-    }
-}
+        if (!element.classList) return;
 
-class BadgeNameHandler {
-    constructor(collector) {
-        this.collector = collector;
-    }
+        // Initialize badge when we find a badge icon
+        if (element.classList.contains("badge_icon")) {
+            this.currentBadge = {
+                icon: element.getAttribute("src") || "",
+                name: "",
+                xp: ""
+            };
+            this.collector.data.badge = this.currentBadge;
+        }
 
-    element(element) {
-        const name = element.textContent?.trim();
-        if (name) this.collector.data.badge.at(-1).name = name;
-    }
-}
+        // Get badge name
+        if (this.currentBadge && element.classList.contains("name")) {
+            const name = element.textContent?.trim();
+            if (name) {
+                this.currentBadge.name = name;
+            }
+        }
 
-class BadgeXPHandler {
-    constructor(collector) {
-        this.collector = collector;
-    }
-
-    element(element) {
-        const xp = element.textContent?.trim();
-        if (xp) this.collector.data.badge.at(-1).xp = xp;
+        // Get badge XP
+        if (this.currentBadge && element.classList.contains("xp")) {
+            const xp = element.textContent?.trim();
+            if (xp) {
+                this.currentBadge.xp = xp;
+            }
+        }
     }
 }
 
@@ -220,29 +220,34 @@ async function handleRequest(request) {
     const url = new URL(request.url);
     const steamid = url.searchParams.get("steamid");
     const lang = url.searchParams.get("lang") || "zh";
-    const userAgent = "SteamMiniProfileParser/1.0 (+https://github.com/your-repo)";
 
-    if (!steamid || steamid.length < 3) {
-        return new Response(JSON.stringify({ error: "Invalid 'steamid' parameter" }), {
+    if (!steamid) {
+        return new Response(JSON.stringify({ error: "Missing 'steamid' parameter" }), {
             status: 400,
             headers: {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": getCorsOrigin(request)
             }
         });
+    }
+
+    let steamid64 = steamid;
+
+    // Support profile URLs
+    const match = steamid.match(/^https:\/\/steamcommunity\.com\/profiles\/(\d{17})$/);
+    if (match) {
+        steamid64 = match[1];
     }
 
     let accountId;
     try {
-        const sid = new SteamID(steamid);
-        if (!sid.isValid) throw new Error("Invalid SteamID format");
+        const sid = new SteamID(steamid64);
+        if (!sid.isValid()) {
+            throw new Error("Invalid SteamID");
+        }
         accountId = sid.accountid;
     } catch (err) {
-        return new Response(JSON.stringify({
-            error: "SteamID解析失败",
-            details: err.message,
-            supported_formats: ["SteamID64", "Profiles URL"]
-        }), {
+        return new Response(JSON.stringify({ error: "Invalid SteamID format" }), {
             status: 400,
             headers: {
                 "Content-Type": "application/json",
@@ -251,12 +256,12 @@ async function handleRequest(request) {
         });
     }
 
-    const miniProfileURL = `https://steamcommunity.com/miniprofile/${accountId}/?l=${lang}`;
+    const miniProfileURL = `https://steamcommunity.com/miniprofile/${accountId}?l=${lang}`;
 
     try {
         const response = await fetch(miniProfileURL, {
             headers: {
-                "User-Agent": userAgent,
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Accept-Language": lang,
                 "Referer": "https://steamcommunity.com/"
             },
@@ -268,9 +273,10 @@ async function handleRequest(request) {
 
         if (!response.ok) {
             const status = response.status;
-            let msg = "Steam资料获取失败";
-            if (status === 404) msg = "用户资料不存在或设置为私密";
-            if (status === 403) msg = "访问被Steam拒绝";
+            let msg = "Failed to fetch Steam profile";
+            if (status === 404) msg = "Profile not found or private";
+            if (status === 403) msg = "Access denied by Steam";
+
             return new Response(JSON.stringify({ error: msg, status }), {
                 status: status > 500 ? 502 : status,
                 headers: {
@@ -281,19 +287,26 @@ async function handleRequest(request) {
         }
 
         const collector = new ProfileDataCollector();
+        const statusHandler = new StatusHandler(collector);
+        const gameHandler = new GameInfoHandler(collector);
+        const badgeHandler = new BadgeHandler(collector);
+
         const rewriter = new HTMLRewriter()
-            .on("span.persona", new TextContentHandler(collector, "name"))
-            .on("span.persona", new StatusHandler(collector))
+            .on(".persona", new TextContentHandler(collector, "name"))
             .on(".secondaryname", new TextContentHandler(collector, "secondaryName"))
+            .on(".friend_status_offline", statusHandler)
+            .on(".friend_status_online", statusHandler)
+            .on(".game_state", statusHandler)
             .on(".playersection_avatar img", new AvatarHandler(collector))
             .on(".miniprofile_backgroundblur", new BackgroundHandler(collector))
             .on(".miniprofile_nameplate source[type='video/webm']", new BackgroundVideoHandler(collector))
             .on(".friendPlayerLevelNum", new LevelHandler(collector))
-            .on(".miniprofile_game_name", new GameInfoHandler(collector))
-            .on(".game_logo", new GameInfoHandler(collector))
-            .on(".miniprofile_featuredcontainer .badge_icon", new BadgeIconHandler(collector))
-            .on(".miniprofile_featuredcontainer .name", new BadgeNameHandler(collector))
-            .on(".miniprofile_featuredcontainer .xp", new BadgeXPHandler(collector));
+            .on(".miniprofile_gamesection", gameHandler)
+            .on(".miniprofile_game_name", gameHandler)
+            .on(".game_logo", gameHandler)
+            .on(".miniprofile_featuredcontainer .badge_icon", badgeHandler)
+            .on(".miniprofile_featuredcontainer .name", badgeHandler)
+            .on(".miniprofile_featuredcontainer .xp", badgeHandler);
 
         await rewriter.transform(response).arrayBuffer();
 
@@ -303,12 +316,11 @@ async function handleRequest(request) {
                 "Cache-Control": "public, max-age=300",
                 "Access-Control-Allow-Origin": getCorsOrigin(request),
                 "X-Content-Type-Options": "nosniff",
-                "X-Frame-Options": "DENY",
-                "X-Source": "Steam MiniProfile Parser"
+                "X-Frame-Options": "DENY"
             }
         });
     } catch (err) {
-        return new Response(JSON.stringify({ error: "请求处理失败", details: err.message }), {
+        return new Response(JSON.stringify({ error: "Request failed", details: err.message }), {
             status: 500,
             headers: {
                 "Content-Type": "application/json",
@@ -339,40 +351,42 @@ function getCorsOrigin(request) {
         "https://sleepy.zmal.top",
     ];
     const origin = request.headers.get("Origin");
-    return allowedOrigins.includes(origin) ? origin : "null";
+    return allowedOrigins.includes(origin) ? origin : "*";
 }
 
 class SteamID {
     constructor(input) {
         this.input = input;
         this.accountid = null;
-        this.isValid = false;
+        this._isValid = false;
         this.parseInput();
     }
 
     parseInput() {
+        // Handle SteamID64 format
         if (/^\d{17}$/.test(this.input)) {
             const steamID64 = BigInt(this.input);
             this.accountid = String(steamID64 & BigInt(0xFFFFFFFF));
-            this.isValid = true;
+            this._isValid = true;
             return;
         }
 
-        const profilePattern = /steamcommunity\.com\/(?:profiles|id)\/([^\/?]+)/;
+        // Handle profile URLs
+        const profilePattern = /steamcommunity\.com\/profiles\/(\d{17})/;
         const match = this.input.match(profilePattern);
 
         if (match && match[1]) {
-            const idPart = match[1];
-            if (/^\d+$/.test(idPart)) {
-                this.accountid = String(BigInt(idPart) & BigInt(0xFFFFFFFF));
-                this.isValid = true;
-                return;
-            }
-            this.isValid = false;
-            throw new Error("自定义URL需要额外解析，暂不支持");
+            const steamID64 = BigInt(match[1]);
+            this.accountid = String(steamID64 & BigInt(0xFFFFFFFF));
+            this._isValid = true;
+            return;
         }
 
-        this.isValid = false;
-        throw new Error("无法识别的SteamID格式");
+        this._isValid = false;
+        throw new Error("Invalid SteamID format");
+    }
+
+    isValid() {
+        return this._isValid;
     }
 }

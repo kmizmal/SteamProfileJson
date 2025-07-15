@@ -1,4 +1,4 @@
-# Steam MiniProfile API
+# SteamProfileJson API
 
 基于 Node.js 和 Express 的简易 API 服务，用于绕过`steamkey`抓取并解析 Steam 用户的 MiniProfile 信息，包括昵称、状态、头像、背景、Steam 等级、游戏状态和徽章等。
 

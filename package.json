@@ -16,8 +16,7 @@
   ],
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "lint": "eslint --fix src test",
-    "test": "vitest run",
+    "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -26,6 +25,7 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "morgan": "^1.10.0",
+    "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
     "steamid": "^2.1.0"
   },
@@ -39,7 +39,6 @@
     "eslint": "^9.31.0",
     "eslint-plugin-format": "^1.0.1",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "typescript": "^5.8.3"
   }
 }
