@@ -71,7 +71,7 @@ GET /?steamid=<steamid>&lang=<语言代码>
 ### 示例请求
 
 ```bash
-curl "http://localhost:3000/?steamid=76561198000000000&lang=en"
+curl "http://localhost:3000/?steamid=76561199517255765&lang=en"
 ```
 
 ### 返回示例

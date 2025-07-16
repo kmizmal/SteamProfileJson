@@ -122,11 +122,13 @@ function extractProfileData(html: string) {
   const name = $persona.text().trim();
   const secondaryName = $secondaryName.text().trim();
 
-  let status = 0;
-  if ($(".friend_status_online").length > 0) {
+  let status: number | string = "未知";
+  if ($(".game_state").length > 0) {
+    status = $(".game_state").first().text().trim(); // 保留原样文本
+  } else if ($(".friend_status_online").length > 0) {
     status = 1;
-  } else if ($(".game_state").length > 0) {
-    status = 2;
+  } else if ($(".friend_status_offline").length > 0) {
+    status = 0;
   }
 
   const avatar = $avatarImg.attr("src") || "";
